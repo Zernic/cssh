@@ -1,0 +1,61 @@
+{
+  "name": "cssh",
+  "version": "1.0.0",
+  "description": "A clean, minimal SSH client for Windows: frosted glass, saved hosts, no chrome",
+  "author": "Zernic",
+  "license": "MIT",
+  "homepage": "https://github.com/Zernic/cssh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zernic/cssh.git"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "koffi": "^3.3.1",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.zernic.cssh",
+    "productName": "cssh",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "blur.js",
+      "preload.js",
+      "cssh.ico",
+      "ui/**/*",
+      "!**/*.map",
+      "!.vibe-wise/**"
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "cssh.ico"
+    },
+    "portable": {
+      "artifactName": "cssh.exe"
+    }
+  }
+}

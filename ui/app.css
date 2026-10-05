@@ -1,0 +1,516 @@
+/* cssh — a clean ssh client */
+
+:root {
+  /* The glass itself is DWM's blur behind the window; this tint is only
+     used in clear mode, where there is no blur to sit on. */
+  --scrim: 0;
+  --bg: rgba(20, 20, 21, var(--scrim));
+  --text: #e8e8e9;
+  --soft: rgba(232, 232, 233, 0.6);
+  --dim: rgba(232, 232, 233, 0.34);
+  --faint: rgba(232, 232, 233, 0.15);
+  --line: rgba(255, 255, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.05);
+  --accent: #cdd1d4;
+  --warn: #e08d94;
+  --radius: 12px;
+  --ui: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-ligatures: none;
+  cursor: default;
+  user-select: none;
+}
+
+#app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* Flat, no gradients. A fade this faint only has a handful of distinct
+     levels, which bands into visible stripes — badly so on HDR/10-bit
+     displays, where the compositor stretches those steps apart. */
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* No blur behind it, so clear mode leans on its own tint — flat again, since a
+   140px inset shadow is just another gradient. */
+#app.clear {
+  background: rgba(20, 20, 21, var(--scrim));
+}
+
+/* z-index only bites on positioned elements, so lift these out of the flow. */
+#bar,
+#term,
+#status,
+#veil,
+#offer {
+  position: relative;
+  z-index: 1;
+}
+
+#status,
+#veil,
+#offer {
+  position: absolute;
+}
+
+/* A maximized window sits flush with the screen edges. */
+#app.maxed {
+  border-radius: 0;
+  border-color: transparent;
+}
+
+/* ------------------------------------------------------------- title bar */
+
+#bar {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0 6px 0 16px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  transition: color 0.35s ease;
+}
+
+/* While maximized — and for the rest of a drag that started there — the
+   gesture is ours, so the OS must not claim it. */
+#app.maxed #bar,
+#app.dragging #bar {
+  -webkit-app-region: no-drag;
+}
+
+#app:hover #bar {
+  color: var(--soft);
+}
+
+#title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+#controls {
+  -webkit-app-region: no-drag;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+#app:hover #controls {
+  opacity: 1;
+}
+
+#controls button {
+  width: 26px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+#controls button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+#controls button:hover::after {
+  background: var(--soft);
+  transform: scale(1.1);
+}
+
+#close:hover::after {
+  background: var(--warn);
+}
+
+/* -------------------------------------------------------------- terminal */
+
+#term {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px 14px 10px 16px;
+  opacity: 0;
+  transition: opacity 0.4s ease, filter 0.3s ease;
+}
+
+#app.live #term {
+  opacity: 1;
+}
+
+#app.asking #term {
+  filter: blur(3px) saturate(0.7);
+  opacity: 0.5;
+}
+
+.xterm {
+  height: 100%;
+  cursor: text;
+  user-select: text;
+}
+
+/* Real glyphs through the system rasterizer, not a canvas texture atlas:
+   hinting and antialiasing stay native, and a soft shadow lifts them
+   off whatever is behind the glass. */
+.xterm .xterm-rows {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+#app.no-shadow .xterm .xterm-rows {
+  text-shadow: none;
+}
+
+/* Apps that paint their own black panels — banners, logos, TUI chrome — punch
+   opaque holes in the glass. Treat black as "no background" so they sit on the
+   blur like everything else. Covers the palette/indexed form (a class) and the
+   true-colour form (an inline style). */
+#app.clear-black .xterm-rows .xterm-bg-0,
+#app.clear-black .xterm-rows span[style*="background-color: rgb(0, 0, 0)"],
+#app.clear-black .xterm-rows span[style*="background-color:#000000"],
+#app.clear-black .xterm-rows span[style*="background-color: #000000"] {
+  background-color: transparent !important;
+}
+
+.xterm .xterm-viewport {
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar {
+  width: 7px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ---------------------------------------------------------------- status */
+
+#status {
+  position: absolute;
+  left: 18px;
+  bottom: 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+#status.show {
+  opacity: 1;
+}
+
+#status.warn {
+  color: var(--warn);
+}
+
+/* Offer to fill a saved password, shown only while the remote is asking. */
+#offer {
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--soft);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+#offer.show {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+#veil {
+  position: absolute;
+  /* Stops below the title bar: covering it would swallow the drag region. */
+  inset: 34px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#veil.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#dialog {
+  width: min(560px, 76%);
+  transform: translateY(-4%);
+}
+
+#mark {
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  text-transform: lowercase;
+  color: var(--faint);
+  margin-bottom: 22px;
+}
+
+#label {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--soft);
+  margin-bottom: 10px;
+  min-height: 16px;
+}
+
+#field {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.3s ease;
+}
+
+#veil.show #field {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+#veil.blocked #field {
+  display: none;
+}
+
+#ghost,
+#input {
+  font-family: var(--ui);
+  font-size: 19px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  padding: 4px 2px 8px;
+}
+
+#ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+#ghost-typed {
+  color: transparent;
+}
+
+#ghost-rest {
+  color: var(--faint);
+}
+
+#input {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--accent);
+  user-select: text;
+}
+
+#input::placeholder {
+  color: var(--faint);
+}
+
+#input::selection {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+
+/* ------------------------------------------------------- save password */
+
+#save {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  margin-top: 16px;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--soft);
+  cursor: pointer;
+}
+
+#save.show {
+  display: flex;
+}
+
+#savebox {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+#savebox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* the tick */
+#savebox:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 3px;
+  height: 7px;
+  border: solid #16161a;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+#save:hover #savebox {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* ----------------------------------------------------------- saved hosts */
+
+#hosts {
+  list-style: none;
+  margin: 12px -8px 0;
+  max-height: 232px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+#hosts:empty {
+  margin: 0;
+}
+
+#hosts li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--soft);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+#hosts li:hover {
+  background: var(--hover);
+}
+
+#hosts li.on {
+  background: var(--hover);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+#hosts .name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#hosts .when {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+#hosts .drop {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+#hosts li:hover .drop {
+  opacity: 1;
+}
+
+#hosts .drop:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--warn);
+}
+
+#note {
+  margin-top: 14px;
+  font-size: 11.5px;
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  color: var(--dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+#note.warn {
+  color: var(--warn);
+}
+
+#note b {
+  color: var(--soft);
+  font-weight: 400;
+}

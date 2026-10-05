@@ -1,0 +1,12 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# local learner notes (vibe-wise)
+.vibe-wise/
+
+# editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+*.log

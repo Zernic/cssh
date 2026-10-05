@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self';"
+    />
+    <title>cssh</title>
+    <link rel="stylesheet" href="vendor/xterm.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="bar">
+        <span id="title">cssh</span>
+        <div id="controls">
+          <button id="min" title="minimize" aria-label="minimize"></button>
+          <button id="max" title="maximize" aria-label="maximize"></button>
+          <button id="close" title="close" aria-label="close"></button>
+        </div>
+      </header>
+
+      <main id="term"></main>
+
+      <div id="status"></div>
+      <div id="offer"></div>
+
+      <section id="veil">
+        <div id="dialog">
+          <div id="mark">cssh</div>
+          <div id="label"></div>
+          <div id="field">
+            <div id="ghost"><span id="ghost-typed"></span><span id="ghost-rest"></span></div>
+            <input id="input" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" />
+          </div>
+          <label id="save" hidden>
+            <input type="checkbox" id="savebox" />
+            <span>save this password</span>
+          </label>
+          <ul id="hosts"></ul>
+          <div id="note"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="vendor/xterm.js"></script>
+    <script src="vendor/addon-fit.js"></script>
+    <script src="vendor/addon-web-links.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
